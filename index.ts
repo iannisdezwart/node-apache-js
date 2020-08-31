@@ -380,24 +380,38 @@ export const startServer = (
 										convertBody(message)
 
 										if (message.type == 'response') {
+
 											res.end(message.body)
 											resolve()
+
 										} else if (message.type == 'write') {
+
 											if (res.writableEnded) {
 												log('e', new Error(`Worker tried to write after end.`).stack)
 											} else {
 												res.write(message.body)
 											}
+
 										} else if (message.type == 'set-header') {
+
 											if (res.headersSent) {
 												log('e', new Error(`Worker tried to set a header after they were sent.`).stack)
 											} else {
 												res.setHeader(message.name, message.value)
 											}
+
 										} else if (message.type == 'set-status-code') {
-											res.statusCode = message.statusCode
+
+											if (res.headersSent) {
+												log('e', new Error(`Worker tried to set status code after the headers had been sent.`))
+											} else {
+												res.statusCode = message.statusCode
+											}
+
 										} else if (message.type == 'log') {
+
 											log(message.level, message.message)
+
 										}
 									} catch(err) {
 										log('e', `${ chalk.grey(id) }: Main thread failed to execute worker message: ${ JSON.stringify(message, null, 2) }`)
