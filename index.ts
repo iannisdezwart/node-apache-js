@@ -383,7 +383,11 @@ export const startServer = (
 											res.end(message.body)
 											resolve()
 										} else if (message.type == 'write') {
-											res.write(message.body)
+											if (res.writableEnded) {
+												log('e', new Error(`Worker tried to write after end.`).stack)
+											} else {
+												res.write(message.body)
+											}
 										} else if (message.type == 'set-header') {
 											res.setHeader(message.name, message.value)
 										} else if (message.type == 'set-status-code') {
