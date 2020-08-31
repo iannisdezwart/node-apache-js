@@ -341,13 +341,28 @@ exports.startServer = function (port) {
                                         resolve();
                                     }
                                     else if (message.type == 'write') {
-                                        res.write(message.body);
+                                        if (res.writableEnded) {
+                                            logger_1.log('e', new Error("Worker tried to write after end.").stack);
+                                        }
+                                        else {
+                                            res.write(message.body);
+                                        }
                                     }
                                     else if (message.type == 'set-header') {
-                                        res.setHeader(message.name, message.value);
+                                        if (res.headersSent) {
+                                            logger_1.log('e', new Error("Worker tried to set a header after they were sent.").stack);
+                                        }
+                                        else {
+                                            res.setHeader(message.name, message.value);
+                                        }
                                     }
                                     else if (message.type == 'set-status-code') {
-                                        res.statusCode = message.statusCode;
+                                        if (res.headersSent) {
+                                            logger_1.log('e', new Error("Worker tried to set status code after the headers had been sent."));
+                                        }
+                                        else {
+                                            res.statusCode = message.statusCode;
+                                        }
                                     }
                                     else if (message.type == 'log') {
                                         logger_1.log(message.level, message.message);
