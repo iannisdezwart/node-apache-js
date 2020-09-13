@@ -334,11 +334,17 @@ exports.startServer = function (port) {
                                 return message;
                             };
                             worker.on('message', function (message) {
+                                console.log(message);
                                 try {
                                     convertBody(message);
                                     if (message.type == 'response') {
-                                        res.end(message.body);
-                                        resolve();
+                                        if (res.writableEnded) {
+                                            logger_1.log('e', new Error("Worker tried to end the request after it had been sent.").stack);
+                                        }
+                                        else {
+                                            res.end(message.body);
+                                            resolve();
+                                        }
                                     }
                                     else if (message.type == 'write') {
                                         if (res.writableEnded) {
@@ -357,10 +363,7 @@ exports.startServer = function (port) {
                                         }
                                     }
                                     else if (message.type == 'set-status-code') {
-                                        if (res.headersSent) {
-                                            logger_1.log('e', new Error("Worker tried to set status code after the headers had been sent."));
-                                        }
-                                        else {
+                                        if (!res.headersSent && !res.writableEnded) {
                                             res.statusCode = message.statusCode;
                                         }
                                     }

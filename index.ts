@@ -31,7 +31,7 @@ import * as chalk from 'chalk'
 import { log, startLogger, stopLogger } from '@iannisz/logger'
 
 import { Worker } from 'worker_threads'
-import { PostMessage, ResponseMessage } from './plugins/workers/index'
+import { PostMessage } from './plugins/workers/index'
 
 interface HostSettings {
 	root: string
@@ -254,7 +254,11 @@ export const startServer = (
 		res: http.ServerResponse
 	) => {
 		try {
-			const ip = req.headers.ip ?? req.socket.remoteAddress.replace(/::ffff:/, '')
+			const ip = req.headers['cf-connecting-ip'] // CloudFlare Proxy
+				?? req.headers['x-forwarded-for'] // Other Proxy
+				?? req.headers.ip // Actual IP Header
+				?? req.socket.remoteAddress.replace(/::ffff:/, '') // From Socket
+
 			const url = new URL(req.url, `https://${ req.headers.host }`)
 			const host = req.headers.host.replace('www.', '')
 			const path = decodeURI(url.pathname)
@@ -376,13 +380,19 @@ export const startServer = (
 								}
 
 								worker.on('message', (message: PostMessage) => {
+									console.log(message)
+
 									try {
 										convertBody(message)
 
 										if (message.type == 'response') {
 
-											res.end(message.body)
-											resolve()
+											if (res.writableEnded) {
+												log('e', new Error(`Worker tried to end the request after it had been sent.`).stack)
+											} else {
+												res.end(message.body)
+												resolve()
+											}
 
 										} else if (message.type == 'write') {
 
@@ -402,9 +412,7 @@ export const startServer = (
 
 										} else if (message.type == 'set-status-code') {
 
-											if (res.headersSent) {
-												log('e', new Error(`Worker tried to set status code after the headers had been sent.`))
-											} else {
+											if (!res.headersSent && !res.writableEnded) {
 												res.statusCode = message.statusCode
 											}
 
