@@ -58,6 +58,10 @@ var Res = /** @class */ (function () {
         worker_threads_1.parentPort.postMessage({ type: 'write', body: body });
     };
     Res.prototype.send = function (body) {
+        worker_threads_1.parentPort.postMessage({
+            type: 'set-status-code',
+            statusCode: this.statusCode
+        });
         worker_threads_1.parentPort.postMessage({ type: 'response', body: body });
     };
     return Res;

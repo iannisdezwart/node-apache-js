@@ -82,6 +82,11 @@ export class Res {
 	}
 
 	send(body?: any) {
+		parentPort.postMessage({
+			type: 'set-status-code',
+			statusCode: this.statusCode
+		} as SetStatusCodeMessage)
+
 		parentPort.postMessage({ type: 'response', body } as ResponseMessage)
 	}
 }
