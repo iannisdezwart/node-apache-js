@@ -22,6 +22,7 @@ import { resolve as resolvePath } from 'path'
 
 import * as http from 'http'
 import { IncomingForm } from 'formidable'
+import { createProxyServer } from 'http-proxy'
 import { URL } from 'url'
 
 import * as util from 'util'
@@ -35,6 +36,7 @@ import { PostMessage } from './plugins/workers/index'
 
 interface HostSettings {
 	root: string
+	proxyPort: number
 	filemanager: boolean
 	error403document: string
 	error404document: string
@@ -62,6 +64,8 @@ export const startServer = (
 	const fsExists = util.promisify(fs.exists)
 	const fsStats = util.promisify(fs.lstat)
 	const fsDeleteFile = util.promisify(fs.unlink)
+
+	const proxy = createProxyServer()
 
 	const parseJSONFile = (path: string) => {
 		if (!fs.existsSync(path)) {
@@ -196,7 +200,7 @@ export const startServer = (
 				error404document: null,
 			},
 			...vhosts[host]
-		}
+		} as HostSettings
 	}
 
 	// Send HTTP error functions
@@ -274,6 +278,14 @@ export const startServer = (
 				res.writeHead(404)
 				res.end('Not Found')
 
+				return
+			}
+
+			if (hostSettings.proxyPort != null) {
+				// Send the request to the proxy server
+
+				log('i', `${ chalk.grey(id) }: Proxied request to localhost:${ hostSettings.proxyPort }`)
+				proxy.web(req, res, { target: { host: 'localhost', port: hostSettings.proxyPort } })
 				return
 			}
 
