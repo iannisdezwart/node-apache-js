@@ -291,6 +291,8 @@ export const startServer = (
 					}
 				}, err => {
 					log('e', `Proxy error: ${ err.message }`)
+					res.writeHead(502)
+					res.end('Proxy error')
 				})
 				return
 			}
