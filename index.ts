@@ -285,7 +285,13 @@ export const startServer = (
 				// Send the request to the proxy server
 
 				log('i', `${ chalk.grey(id) }: Proxied request to localhost:${ hostSettings.proxyPort }`)
-				proxy.web(req, res, { target: { host: 'localhost', port: hostSettings.proxyPort } })
+				proxy.web(req, res, {
+					target: {
+						host: 'localhost', port: hostSettings.proxyPort
+					}
+				}, err => {
+					log('e', `Proxy error: ${ err.message }`)
+				})
 				return
 			}
 
