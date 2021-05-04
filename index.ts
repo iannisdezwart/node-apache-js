@@ -23,7 +23,7 @@ import { resolve as resolvePath } from 'path'
 import * as http from 'http'
 import { IncomingForm } from 'formidable'
 import { createProxyServer } from 'http-proxy'
-import { URL } from 'url'
+import { URL, URLSearchParams } from 'url'
 
 import * as util from 'util'
 import * as mime from 'mime-types'
@@ -95,6 +95,7 @@ export const startServer = (
 	const sendFile = async (
 		req: http.IncomingMessage,
 		res: http.ServerResponse,
+		url: URL,
 		filePath: string
 	) => {
 		const stats = await fsStats(filePath)
@@ -132,17 +133,26 @@ export const startServer = (
 
 			// Send Partial Content Success
 
-			res.writeHead(206, {
-				'Content-Range': `bytes ${ start }-${ end }/${ stats.size }`,
-				'Accept-Ranges': 'bytes',
-				'Content-Length': end - start + 1,
-				'Content-Type': mimeType
-			})
+			res.statusCode = 206
+
+			res.setHeader('Content-Range', `bytes ${ start }-${ end }/${ stats.size }`)
+			res.setHeader('Accept-Ranges', `bytes`)
+			res.setHeader('Content-Type', mimeType)
+			res.setHeader('Content-Length', end - start + 1)
 		} else {
-			res.writeHead(200, {
-				'Content-Type': mimeType,
-				'Content-Length': stats.size
-			})
+			res.statusCode = 200
+
+			res.setHeader('Content-Type', mimeType)
+			res.setHeader('Content-Length', stats.size)
+		}
+
+		// Check caching request
+
+		const urlSearchParams = new URLSearchParams(url.search)
+		const cacheAge = urlSearchParams.get('cache-age')
+
+		if (cacheAge != null) {
+			res.setHeader('Cache-Control', `public, max-age=${ cacheAge }, immutable`)
 		}
 
 		// Stream to response
@@ -208,11 +218,12 @@ export const startServer = (
 	const send404 = (
 		req: http.IncomingMessage,
 		res: http.ServerResponse,
+		url: URL,
 		hostSettings: HostSettings,
 		logMessage: string
 	) => {
 		if (hostSettings.error404document != null) {
-			sendFile(req, res, hostSettings.root + hostSettings.error404document)
+			sendFile(req, res, url, hostSettings.root + hostSettings.error404document)
 		} else {
 			res.writeHead(404)
 			res.end('Not Found')
@@ -224,11 +235,12 @@ export const startServer = (
 	const send403 = (
 		req: http.IncomingMessage,
 		res: http.ServerResponse,
+		url: URL,
 		hostSettings: HostSettings,
 		logMessage: string
 	) => {
 		if (hostSettings.error403document != null) {
-			sendFile(req, res, hostSettings.root + hostSettings.error403document)
+			sendFile(req, res, url, hostSettings.root + hostSettings.error403document)
 		} else {
 			res.writeHead(403)
 			res.end('Forbidden')
@@ -319,23 +331,23 @@ export const startServer = (
 						if (finalFileExists) {
 							// path + '/index.html' is a file, send it
 
-							sendFile(req, res, finalFile)
+							sendFile(req, res, url, finalFile)
 						} else {
 							// path + '/index.html' does not exist, send 404
 
-							send404(req, res, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } not found. Sent 404`)
+							send404(req, res, url, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } not found. Sent 404`)
 						}
 					} else {
 						// Requested path is a file, check if it's allowed to be sent
 
 						if (fileAllowed(file)) {
-							sendFile(req, res, file)
+							sendFile(req, res, url, file)
 						} else {
-							send403(req, res, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } isn't allowed to be sent. Sent 403`)
+							send403(req, res, url, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } isn't allowed to be sent. Sent 403`)
 						}
 					}
 				} else {
-					send404(req, res, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } not found. Sent 404`)
+					send404(req, res, url, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } not found. Sent 404`)
 				}
 			} else if (req.method == 'POST') {
 				// Find file
@@ -348,7 +360,7 @@ export const startServer = (
 					const stats = await fsStats(file)
 
 					if (stats.isDirectory()) {
-						send404(req, res, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } is a directory. Sent 404`)
+						send404(req, res, url, hostSettings, `${ chalk.grey(id) }: ${ chalk.red(path) } is a directory. Sent 404`)
 					} else {
 						// Requested path is a file, try to execute it
 
@@ -481,7 +493,7 @@ export const startServer = (
 						} else {
 							// File cannot be excecuted
 
-							send404(req, res, hostSettings,  `${ chalk.grey(id) }: ${ chalk.red(file) } cannot be executed. Sent 404`)
+							send404(req, res, url, hostSettings,  `${ chalk.grey(id) }: ${ chalk.red(file) } cannot be executed. Sent 404`)
 						}
 					}
 				}
