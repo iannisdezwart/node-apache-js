@@ -37,6 +37,7 @@ import { PostMessage } from './plugins/workers/index'
 interface HostSettings {
 	root: string
 	proxyPort: number
+	redirect: string
 	filemanager: boolean
 	error403document: string
 	error404document: string
@@ -293,10 +294,21 @@ export const startServer = (
 				return
 			}
 
+			if (hostSettings.redirect != null) {
+				log('i', `${ chalk.grey(id) }: Redirected request to ${ hostSettings.redirect }`)
+
+				res.setHeader('location', hostSettings.redirect)
+				res.writeHead(301)
+				res.end()
+
+				return
+			}
+
 			if (hostSettings.proxyPort != null) {
 				// Send the request to the proxy server
 
 				log('i', `${ chalk.grey(id) }: Proxied request to localhost:${ hostSettings.proxyPort }`)
+
 				proxy.web(req, res, {
 					target: {
 						host: 'localhost', port: hostSettings.proxyPort
@@ -306,6 +318,7 @@ export const startServer = (
 					res.writeHead(502)
 					res.end('Proxy error')
 				})
+
 				return
 			}
 
