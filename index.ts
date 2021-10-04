@@ -41,6 +41,7 @@ interface HostSettings {
 	filemanager: boolean
 	error403document: string
 	error404document: string
+	overrideHeaders: { [ key: string ]: string }
 }
 
 interface VHostsFile {
@@ -175,7 +176,13 @@ export const startServer = (
 				return
 			}
 
-			const body = JSON.parse(fields.body as string)
+			let body: any
+
+			try {
+				body = JSON.parse(fields.body as string)
+			} catch {
+				body = {}
+			}
 
 			const files: File[] = []
 
@@ -292,6 +299,13 @@ export const startServer = (
 				res.end('Not Found')
 
 				return
+			}
+
+			if (hostSettings.overrideHeaders != null) {
+				for (const header in hostSettings.overrideHeaders) {
+					const value = hostSettings.overrideHeaders[header]
+					res.setHeader(header, value)
+				}
 			}
 
 			if (hostSettings.redirect != null) {
