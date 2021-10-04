@@ -202,6 +202,15 @@ export const startServer = (
 		})
 	})
 
+	// Read body from request
+
+	const readBody = (req: http.IncomingMessage) => new Promise<string>(resolve => {
+		let body = ''
+
+		req.on('data', chunk => body += chunk)
+		req.on('end', () => resolve(body))
+	})
+
 	// Get Host Settings
 
 	const getHostSettings = (
@@ -394,7 +403,39 @@ export const startServer = (
 						if (file.endsWith('.node.js')) {
 							// Parse the request
 
-							const { body, files } = await parseForm(req)
+							const typeIs = (arr: string[]) => {
+								for (const type of arr) {
+									if (req.headers['content-type'].includes(type)) return true
+								}
+
+								return false
+							}
+
+							let body: any = {}
+							let files: File[] = []
+
+							if (typeIs([
+								'application/x-www-form-urlencoded',
+								'multipart/form-data'
+							])) {
+								// Form data
+
+								const parsedForm = await parseForm(req)
+
+								body = parsedForm.body
+								files = parsedForm.files
+
+								console.log('read form data')
+							}
+
+							else {
+								// JSON
+
+								body = JSON.parse(await readBody(req))
+
+								console.log('read json data')
+							}
+
 							console.log(body, files)
 
 							enum WorkerError {
