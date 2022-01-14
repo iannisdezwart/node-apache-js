@@ -67,7 +67,7 @@ export const startServer = (
 	const fsStats = util.promisify(fs.lstat)
 	const fsDeleteFile = util.promisify(fs.unlink)
 
-	const proxy = createProxyServer()
+	const proxy = createProxyServer({ ws: true })
 
 	const parseJSONFile = (path: string) => {
 		if (!fs.existsSync(path)) {
@@ -592,6 +592,42 @@ export const startServer = (
 	// Create server
 
 	const server = http.createServer(requestListener)
+
+	// Respond to WebSocket requests
+
+	server.on('upgrade', (req, socket, head) => {
+		const url = new URL(req.url, `https://${ req.headers.host }`)
+		const host = req.headers.host.replace('www.', '')
+		const path = decodeURI(url.pathname)
+
+		const ip = req.headers['cf-connecting-ip'] // CloudFlare Proxy
+			?? req.headers['x-forwarded-for'] // Other Proxy
+			?? req.headers.ip // Actual IP Header
+			?? req.socket.remoteAddress.replace(/::ffff:/, '') // From Socket
+
+		const id = ++numOfRequests
+		const hostSettings = getHostSettings(host)
+
+		log('i', `${ req.method } upgrade request ${ chalk.grey(id) }: from ${ chalk.cyan(ip) } to ${ chalk.cyan(host + path) }`)
+
+		if (hostSettings == null) {
+			log('w', `${ chalk.grey(id) }: Unkown host '${ host }'.`)
+			return
+		}
+
+		if (hostSettings.proxyPort == null) {
+			log('w', `${ chalk.grey(id) }: Host '${ host }' has no proxy port.`)
+			return
+		}
+
+		proxy.ws(req, socket, head, {
+			target: {
+				host: 'localhost', port: hostSettings.proxyPort
+			}
+		}, err => {
+			log('e', `Proxy error: ${ err.message }`)
+		})
+	})
 
 	// Start server
 
