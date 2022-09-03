@@ -652,6 +652,10 @@ export const startServer = (
 		await stopLogger()
 	})
 
+	// Ensure users can send large upload requests
+
+	server.headersTimeout = 1000 * 60 * 60 // 60 minutes
+
 
 	/* ===================
 		4. On exit
