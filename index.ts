@@ -176,7 +176,7 @@ export const startServer = (
 
 		form.parse(req, (err, fields, fileList) => {
 			if (err) {
-				reject()
+				reject(err)
 				return
 			}
 
