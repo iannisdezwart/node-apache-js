@@ -34,6 +34,7 @@ import { log, startLogger, stopLogger } from '@iannisz/logger'
 import { Worker } from 'worker_threads'
 import { PostMessage } from './plugins/workers/index'
 import formidable = require('formidable')
+import { Socket } from 'net'
 
 interface HostSettings {
 	root: string
@@ -602,7 +603,7 @@ export const startServer = (
 
 	// Respond to WebSocket requests
 
-	server.on('upgrade', (req, socket, head) => {
+	server.on('upgrade', (req: http.IncomingMessage, socket: Socket, head: Buffer) => {
 		const url = new URL(req.url, `https://${ req.headers.host }`)
 		const host = req.headers.host.replace('www.', '')
 		const path = decodeURI(url.pathname)
