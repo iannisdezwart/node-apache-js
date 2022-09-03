@@ -33,6 +33,7 @@ import { log, startLogger, stopLogger } from '@iannisz/logger'
 
 import { Worker } from 'worker_threads'
 import { PostMessage } from './plugins/workers/index'
+import formidable = require('formidable')
 
 interface HostSettings {
 	root: string
@@ -51,7 +52,6 @@ interface VHostsFile {
 interface File {
 	name: string
 	tempPath: string
-	lastModified: number
 	size: number
 	type: string
 }
@@ -168,7 +168,11 @@ export const startServer = (
 	const parseForm = (
 		req: http.IncomingMessage
 	) => new Promise<{ body: any, files: File[] }>((resolve, reject) => {
-		const form = new IncomingForm()
+		const form = new IncomingForm({
+			minFileSize: 0,
+			maxFileSize: 1024 * 1024 * 1024, // 1 GB
+			maxTotalFileSize: 1024 * 1024 * 1024 * 10, // 10 GB
+		})
 
 		form.parse(req, (err, fields, fileList) => {
 			if (err) {
@@ -187,15 +191,18 @@ export const startServer = (
 			const files: File[] = []
 
 			for (let fileName in fileList) {
-				const file = fileList[fileName]
+				const fileBatch = Array.isArray(fileList[fileName])
+					? fileList[fileName] as formidable.File[]
+					: [ fileList[fileName] as formidable.File ]
 
-				files.push({
-					name: fileName,
-					lastModified: file.lastModifiedDate.getTime(),
-					size: file.size,
-					tempPath: file.path,
-					type: file.type
-				})
+				for (let file of fileBatch) {
+					files.push({
+						name: fileName,
+						size: file.size,
+						tempPath: file.filepath,
+						type: file.mimetype
+					})
+				}
 			}
 
 			resolve({ body, files })

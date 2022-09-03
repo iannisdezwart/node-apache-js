@@ -15,7 +15,6 @@ export interface Req {
 export interface File {
 	name: string
 	tempPath: string
-	lastModified: number
 	size: number
 	type: string
 }
